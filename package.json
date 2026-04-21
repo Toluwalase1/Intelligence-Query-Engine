@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon",
     "dev:run": "node --loader ts-node/esm src/server.ts",
+    "seed": "node --loader ts-node/esm src/script/seed.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
@@ -28,7 +29,8 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "mongoose": "^9.5.0",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "uuid": "^14.0.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
