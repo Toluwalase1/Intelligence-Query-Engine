@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import profileRoutes from "./routes/profile.routes.js";
 
 const app = express();
 
@@ -13,5 +14,7 @@ app.get("/", (_req, res) => {
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "success", message: "ok" });
 });
+
+app.use("/api/profiles", profileRoutes);
 
 export default app;
