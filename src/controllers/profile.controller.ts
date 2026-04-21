@@ -11,8 +11,13 @@ const getProfiles = async (req: Request, res: Response) => {
             max_age,
             min_gender_probability,
             min_country_probability,
+            sort_by,
+            order,
+            page,
+            limit,
         } = req.query;
 
+        // STEP 1: Build filter object for database query
         const filter: {
             gender?: "male" | "female";
             age_group?: "child" | "teenager" | "adult" | "senior";
@@ -90,11 +95,66 @@ const getProfiles = async (req: Request, res: Response) => {
             filter.country_probability = { $gte: minCountryProbability };
         }
 
-        const profiles = await Profile.find(filter);
+        // STEP 2: Build sort object
+        // sortObj will look like { age: 1 } or { created_at: -1 }
+        // 1 = ascending, -1 = descending
+        const sortObj: { [key: string]: 1 | -1 } = {};
+        const validSortFields = ["age", "created_at", "gender_probability"];
+
+        if (sort_by !== undefined || order !== undefined) {
+            // If user provides either sort_by or order, both must be provided
+            if (sort_by === undefined || order === undefined) {
+                return res.status(422).json({ status: "error", message: "Invalid query parameters" });
+            }
+            if (!validSortFields.includes(sort_by as string)) {
+                return res.status(422).json({ status: "error", message: "Invalid query parameters" });
+            }
+            if (order !== "asc" && order !== "desc") {
+                return res.status(422).json({ status: "error", message: "Invalid query parameters" });
+            }
+            sortObj[sort_by as string] = order === "asc" ? 1 : -1;
+        }
+
+        // STEP 3: Parse and validate pagination parameters
+        // Default: page=1, limit=10, max_limit=50
+        let pageNumber = 1;
+        let pageLimit = 10;
+
+        if (page !== undefined) {
+            const parsedPage = Number(page);
+            if (!Number.isFinite(parsedPage) || parsedPage < 1) {
+                return res.status(422).json({ status: "error", message: "Invalid query parameters" });
+            }
+            pageNumber = parsedPage;
+        }
+
+        if (limit !== undefined) {
+            const parsedLimit = Number(limit);
+            if (!Number.isFinite(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
+                return res.status(422).json({ status: "error", message: "Invalid query parameters" });
+            }
+            pageLimit = parsedLimit;
+        }
+
+        // STEP 4: Calculate skip for database query
+        // skip tells Mongo how many documents to skip before returning results
+        // Example: page=2, limit=10 means skip 10 documents (show page 2)
+        const skip = (pageNumber - 1) * pageLimit;
+
+        // STEP 5: Query database
+        // countDocuments = total count of matching records (for "total" field)
+        // find = get the filtered data
+        // sort = apply sorting
+        // skip = skip the first N records
+        // limit = return only N records
+        const total = await Profile.countDocuments(filter);
+        const profiles = await Profile.find(filter).sort(sortObj).skip(skip).limit(pageLimit);
 
         return res.status(200).json({
             status: "success",
-            total: profiles.length,
+            page: pageNumber,
+            limit: pageLimit,
+            total,
             data: profiles,
         });
     } catch (error) {
